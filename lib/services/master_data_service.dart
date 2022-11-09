@@ -1,8 +1,7 @@
 part of 'services.dart';
 
-class MasterDataService{
-
-  static Future<List<Province>> getProvince() async{
+class MasterDataService {
+  static Future<List<Province>> getProvinces() async {
     var response = await http.get(
       Uri.https(Const.baseUrl, "/starter/province"),
       headers: <String, String>{
@@ -13,16 +12,16 @@ class MasterDataService{
     var job = json.decode(response.body);
     List<Province> result = [];
 
-    if(response.statusCode == 200){
+    if (response.statusCode == 200) {
       result = (job['rajaongkir']['results'] as List)
-        .map((e) => Province.fromJson(e))
-        .toList();
+          .map((e) => Province.fromJson(e))
+          .toList();
     }
-  
+
     return result;
   }
 
-  static Future<List<City>> getCity(var provId) async{
+  static Future<List<City>> getCities(String provId) async {
     var response = await http.get(
       Uri.https(Const.baseUrl, "/starter/city"),
       headers: <String, String>{
@@ -33,20 +32,19 @@ class MasterDataService{
 
     var job = json.decode(response.body);
     List<City> result = [];
-    if(response.statusCode == 200){
+    if (response.statusCode == 200) {
       result = (job['rajaongkir']['results'] as List)
-        .map((e) => City.fromJson(e))
-        .toList();
+          .map((e) => City.fromJson(e))
+          .toList();
     }
 
     List<City> selectedCities = [];
-    for(var c in result){
-      if(c.provinceId == provId){
+    for (var c in result) {
+      if (c.provinceId == provId) {
         selectedCities.add(c);
       }
     }
-    
+
     return selectedCities;
   }
-
 }

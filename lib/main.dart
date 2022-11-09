@@ -1,7 +1,11 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
-import 'package:raja_ongkir_flutter/views/pages/pages.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:raja_ongkir_flutter/theme/theme.dart';
+import 'package:raja_ongkir_flutter/views/pages.dart';
 
-void main() {
+Future main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 
@@ -10,12 +14,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const Ongkirpage(),
+    return DynamicColorBuilder(
+      builder: (lightColorScheme, darkColorScheme) {
+        return MaterialApp(
+          title: 'Raja Ongkir',
+          theme: DynamicTheme.lightTheme(lightColorScheme),
+          darkTheme: DynamicTheme.darkTheme(darkColorScheme),
+          home: const HomePage(),
+        );
+      },
     );
   }
 }
