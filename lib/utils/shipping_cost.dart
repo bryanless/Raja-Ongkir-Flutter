@@ -2,20 +2,26 @@ import 'package:raja_ongkir_flutter/models/models.dart';
 
 class ShippingCost {
   Courier? courier;
-  Province? province;
-  City? city;
+  String? weight;
+  Province? provinceOrigin;
+  Province? provinceDestination;
+  City? cityOrigin;
+  City? cityDestination;
 
   ShippingCost({
     this.courier,
-    this.province,
-    this.city,
+    this.weight,
+    this.provinceOrigin,
+    this.provinceDestination,
+    this.cityOrigin,
+    this.cityDestination,
   });
 }
 
 enum Courier {
-  jne('jne'),
-  posIndonesia('pos'),
-  tikit('tiki');
+  jne('JNE'),
+  pos('POS'),
+  tiki('Tiki');
 
   const Courier(this.value);
   final String value;
