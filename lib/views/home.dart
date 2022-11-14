@@ -11,11 +11,22 @@ class _HomePageState extends State<HomePage> {
   final _formKey = GlobalKey<FormState>();
   final _weightController = TextEditingController();
 
+  bool _isFormExpanded = true;
+
   Future<List<Province>?>? _provinces;
   Future<List<City>?>? _citiesOrigin;
   Future<List<City>?>? _citiesDestination;
-  final ShippingCost _shippingCost = ShippingCost();
+  Future<List<Costs>?>? _costs;
+  final ShippingDetail _shippingDetail = ShippingDetail();
 
+  // Shipping details
+  void _changeExpandedState(bool isExpanded) {
+    setState(() {
+      _isFormExpanded = isExpanded;
+    });
+  }
+
+  // Request province
   Future<List<Province>?> getProvinces() async {
     List<Province>? provinces;
     await MasterDataService.getProvinces().then((value) {
@@ -26,7 +37,8 @@ class _HomePageState extends State<HomePage> {
     return provinces;
   }
 
-  Future<List<City>?> getCities(dynamic provinceId) async {
+  // Request city
+  Future<List<City>?> getCities(String provinceId) async {
     List<City>? cities;
     await MasterDataService.getCities(provinceId).then((value) {
       setState(() {
@@ -36,9 +48,21 @@ class _HomePageState extends State<HomePage> {
     return cities;
   }
 
+  // Request cost
+  Future<List<Costs>?> getCosts(ShippingDetail shippingCost) async {
+    List<Costs>? costs;
+    await RajaOngkirService.getShippingcCost(shippingCost).then((value) {
+      debugPrint(value.toString());
+      setState(() {
+        costs = value;
+      });
+    });
+    return costs;
+  }
+
   // Courier
   void _onCourierChanged(String courier) {
-    _shippingCost.courier =
+    _shippingDetail.courier =
         Courier.values.firstWhere((value) => (value.value == courier));
   }
 
@@ -52,7 +76,9 @@ class _HomePageState extends State<HomePage> {
 
   // Weight
   void _onWeightChanged(String? weight) {
-    _shippingCost.weight = weight;
+    if (weight?.isNotEmpty ?? false) {
+      _shippingDetail.weight = int.parse(weight!);
+    }
   }
 
   String? _validateWeight(String? weight) {
@@ -67,22 +93,22 @@ class _HomePageState extends State<HomePage> {
 
   // Province
   void _onProvinceOriginChanged(Province province) {
-    _shippingCost.provinceOrigin = province;
+    _shippingDetail.provinceOrigin = province;
     setState(() {
       // Reset cities
       _citiesOrigin = null;
       // Fetch cities
-      _citiesOrigin = getCities(province.provinceId);
+      _citiesOrigin = getCities(province.provinceId!);
     });
   }
 
   void _onProvinceDestinationChanged(Province province) {
-    _shippingCost.provinceDestination = province;
+    _shippingDetail.provinceDestination = province;
     setState(() {
       // Reset cities
       _citiesDestination = null;
       // Fetch cities
-      _citiesDestination = getCities(province.provinceId);
+      _citiesDestination = getCities(province.provinceId!);
     });
   }
 
@@ -96,11 +122,11 @@ class _HomePageState extends State<HomePage> {
 
   // City
   void _onCityOriginChanged(City city) {
-    _shippingCost.cityOrigin = city;
+    _shippingDetail.cityOrigin = city;
   }
 
   void _onCityDestinationChanged(City city) {
-    _shippingCost.cityDestination = city;
+    _shippingDetail.cityDestination = city;
   }
 
   String? _validateCity(City? city) {
@@ -114,20 +140,8 @@ class _HomePageState extends State<HomePage> {
   // Shipping cost
   void _onCheckShippingCost() {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-                'Dari ${_shippingCost.cityOrigin!.cityName} ke ${_shippingCost.cityDestination!.cityName}'),
-            action: SnackBarAction(
-                textColor: Theme.of(context).colorScheme.inversePrimary,
-                label: 'Dismiss',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                }),
-          ),
-        );
+      _costs = getCosts(_shippingDetail);
+      _changeExpandedState(false);
     }
   }
 
@@ -149,6 +163,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Raja Ongkir'),
       ),
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
@@ -156,235 +171,330 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Form(
-                key: _formKey,
-                child: Column(
+              ExpansionPanelList(
+                expansionCallback: (panelIndex, isExpanded) {
+                  _changeExpandedState(!isExpanded);
+                },
+                children: [
+                  ExpansionPanel(
+                    isExpanded: _isFormExpanded,
+                    canTapOnHeader: true,
+                    headerBuilder: ((context, isExpanded) {
+                      return const ListTile(
+                        title: Text('Detail pengiriman'),
+                      );
+                    }),
+                    body: Padding(
+                      padding: const EdgeInsets.all(Space.medium),
+                      child: Column(
+                        children: [
+                          Form(
+                            key: _formKey,
+                            child: Column(
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 1,
+                                      child: TextFields.dropdown(
+                                        optionValues: Courier.values
+                                            .map((courier) => courier.value)
+                                            .toList(),
+                                        onChanged: (value) {
+                                          _onCourierChanged(value);
+                                        },
+                                        isExpanded: true,
+                                        labelText: 'Kurir',
+                                        validator: (value) {
+                                          return _validateCourier(value);
+                                        },
+                                        autovalidateMode:
+                                            AutovalidateMode.onUserInteraction,
+                                      ),
+                                    ),
+                                    SizedSpacer.horizontal(),
+                                    Expanded(
+                                      child: TextFields.outlined(
+                                        controller: _weightController,
+                                        labelText: 'Berat',
+                                        suffixText: 'gr',
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (value) {
+                                          _onWeightChanged(value);
+                                        },
+                                        validator: (value) {
+                                          return _validateWeight(value);
+                                        },
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                          FilteringTextInputFormatter.deny(
+                                              Const.regexNonStartingZero),
+                                        ],
+                                        autovalidateMode:
+                                            AutovalidateMode.onUserInteraction,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedSpacer.vertical(space: Space.medium),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Column(
+                                    children: [
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: Text(
+                                          'Daerah asal',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium,
+                                        ),
+                                      ),
+                                      SizedSpacer.vertical(),
+                                      FutureBuilder<List<Province>?>(
+                                        future: _provinces,
+                                        builder: ((context, snapshot) {
+                                          switch (snapshot.connectionState) {
+                                            case ConnectionState.none:
+                                              return TextFields.dropdown(
+                                                  optionValues: [],
+                                                  disabledHint: 'Provinsi');
+                                            case ConnectionState.waiting:
+                                              return const CircularProgressIndicator();
+                                            default:
+                                              if (snapshot.hasData) {
+                                                return TextFields.dropdown(
+                                                  optionValues: snapshot.data!
+                                                      .map((value) =>
+                                                          value.province!)
+                                                      .toList(),
+                                                  options: snapshot.data,
+                                                  onChanged: (value) {
+                                                    _onProvinceOriginChanged(
+                                                        value);
+                                                  },
+                                                  labelText: 'Provinsi',
+                                                  validator: (value) {
+                                                    return _validateProvince(
+                                                        value);
+                                                  },
+                                                  autovalidateMode:
+                                                      AutovalidateMode
+                                                          .onUserInteraction,
+                                                );
+                                              } else {
+                                                return const Text(
+                                                    'Tidak ada data provinsi');
+                                              }
+                                          }
+                                        }),
+                                      ),
+                                      SizedSpacer.vertical(space: Space.medium),
+                                      if (_shippingDetail.provinceOrigin !=
+                                          null)
+                                        FutureBuilder<List<City>?>(
+                                          future: _citiesOrigin,
+                                          builder: ((context, snapshot) {
+                                            switch (snapshot.connectionState) {
+                                              case ConnectionState.none:
+                                                return TextFields.dropdown(
+                                                    optionValues: [],
+                                                    disabledHint:
+                                                        'Provinsi harus diisi terlebih dahulu');
+                                              case ConnectionState.waiting:
+                                                return const CircularProgressIndicator();
+                                              default:
+                                                if (snapshot.hasData) {
+                                                  return TextFields.dropdown(
+                                                    optionValues: snapshot.data!
+                                                        .map((value) =>
+                                                            value.cityName!)
+                                                        .toList(),
+                                                    options: snapshot.data,
+                                                    onChanged: (value) {
+                                                      _onCityOriginChanged(
+                                                          value);
+                                                    },
+                                                    labelText: 'Kota',
+                                                    validator: (value) {
+                                                      return _validateCity(
+                                                          value);
+                                                    },
+                                                    autovalidateMode:
+                                                        AutovalidateMode
+                                                            .onUserInteraction,
+                                                  );
+                                                } else {
+                                                  return const Text(
+                                                      'Tidak ada data kota');
+                                                }
+                                            }
+                                          }),
+                                        )
+                                    ],
+                                  ),
+                                ),
+                                SizedSpacer.vertical(space: Space.medium),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Column(
+                                    children: [
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: Text(
+                                          'Daerah tujuan',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium,
+                                        ),
+                                      ),
+                                      SizedSpacer.vertical(),
+                                      FutureBuilder<List<Province>?>(
+                                        future: _provinces,
+                                        builder: ((context, snapshot) {
+                                          switch (snapshot.connectionState) {
+                                            case ConnectionState.none:
+                                              return TextFields.dropdown(
+                                                  optionValues: [],
+                                                  disabledHint: 'Provinsi');
+                                            case ConnectionState.waiting:
+                                              return const CircularProgressIndicator();
+                                            default:
+                                              if (snapshot.hasData) {
+                                                return TextFields.dropdown(
+                                                  optionValues: snapshot.data!
+                                                      .map((value) =>
+                                                          value.province!)
+                                                      .toList(),
+                                                  options: snapshot.data,
+                                                  onChanged: (value) {
+                                                    _onProvinceDestinationChanged(
+                                                        value);
+                                                  },
+                                                  labelText: 'Provinsi',
+                                                  validator: (value) {
+                                                    return _validateProvince(
+                                                        value);
+                                                  },
+                                                  autovalidateMode:
+                                                      AutovalidateMode
+                                                          .onUserInteraction,
+                                                );
+                                              } else {
+                                                return const Text(
+                                                    'Tidak ada data provinsi');
+                                              }
+                                          }
+                                        }),
+                                      ),
+                                      SizedSpacer.vertical(space: Space.medium),
+                                      if (_shippingDetail.provinceDestination !=
+                                          null)
+                                        FutureBuilder<List<City>?>(
+                                          future: _citiesDestination,
+                                          builder: ((context, snapshot) {
+                                            switch (snapshot.connectionState) {
+                                              case ConnectionState.none:
+                                                return TextFields.dropdown(
+                                                    optionValues: [],
+                                                    disabledHint:
+                                                        'Provinsi harus diisi terlebih dahulu');
+                                              case ConnectionState.waiting:
+                                                return const CircularProgressIndicator();
+                                              default:
+                                                if (snapshot.hasData) {
+                                                  return TextFields.dropdown(
+                                                    optionValues: snapshot.data!
+                                                        .map((value) =>
+                                                            value.cityName!)
+                                                        .toList(),
+                                                    options: snapshot.data,
+                                                    onChanged: (value) {
+                                                      _onCityDestinationChanged(
+                                                          value);
+                                                    },
+                                                    labelText: 'Kota',
+                                                    validator: (value) {
+                                                      return _validateCity(
+                                                          value);
+                                                    },
+                                                    autovalidateMode:
+                                                        AutovalidateMode
+                                                            .onUserInteraction,
+                                                  );
+                                                } else {
+                                                  return const Text(
+                                                      'Tidak ada data kota');
+                                                }
+                                            }
+                                          }),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                SizedSpacer.vertical(space: Space.large),
+                                FilledButton(
+                                  onPressed: _onCheckShippingCost,
+                                  label: 'Cek ongkir',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedSpacer.vertical(space: Space.large),
+              if (_costs != null) ...[
+                Row(
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: TextFields.dropdown(
-                            optionValues: Courier.values
-                                .map((courier) => courier.value)
-                                .toList(),
-                            onChanged: (value) {
-                              _onCourierChanged(value);
-                            },
-                            isExpanded: true,
-                            labelText: 'Kurir',
-                            validator: (value) {
-                              return _validateCourier(value);
-                            },
-                            autovalidateMode:
-                                AutovalidateMode.onUserInteraction,
-                          ),
-                        ),
-                        SizedSpacer.horizontal(),
-                        Expanded(
-                          child: TextFields.outlined(
-                            controller: _weightController,
-                            labelText: 'Berat',
-                            suffixText: 'gr',
-                            keyboardType: TextInputType.number,
-                            onChanged: (value) {
-                              _onWeightChanged(value);
-                            },
-                            validator: (value) {
-                              return _validateWeight(value);
-                            },
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              FilteringTextInputFormatter.deny(
-                                  Const.regexNonStartingZero),
-                            ],
-                            autovalidateMode:
-                                AutovalidateMode.onUserInteraction,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedSpacer.vertical(space: Space.medium),
-                    SizedBox(
-                      width: double.infinity,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Daerah asal',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          SizedSpacer.vertical(),
-                          FutureBuilder<List<Province>?>(
-                            future: _provinces,
-                            builder: ((context, snapshot) {
-                              switch (snapshot.connectionState) {
-                                case ConnectionState.none:
-                                  return TextFields.dropdown(
-                                      optionValues: [],
-                                      disabledHint: 'Provinsi');
-                                case ConnectionState.waiting:
-                                  return const CircularProgressIndicator();
-                                default:
-                                  if (snapshot.hasData) {
-                                    return TextFields.dropdown(
-                                      optionValues: snapshot.data!
-                                          .map((value) => value.province!)
-                                          .toList(),
-                                      options: snapshot.data,
-                                      onChanged: (value) {
-                                        _onProvinceOriginChanged(value);
-                                      },
-                                      labelText: 'Provinsi',
-                                      validator: (value) {
-                                        return _validateProvince(value);
-                                      },
-                                      autovalidateMode:
-                                          AutovalidateMode.onUserInteraction,
-                                    );
-                                  } else {
-                                    return const Text(
-                                        'Tidak ada data provinsi');
-                                  }
-                              }
-                            }),
-                          ),
-                          SizedSpacer.vertical(space: Space.medium),
-                          if (_shippingCost.provinceOrigin != null)
-                            FutureBuilder<List<City>?>(
-                              future: _citiesOrigin,
-                              builder: ((context, snapshot) {
-                                switch (snapshot.connectionState) {
-                                  case ConnectionState.none:
-                                    return TextFields.dropdown(
-                                        optionValues: [],
-                                        disabledHint:
-                                            'Provinsi harus diisi terlebih dahulu');
-                                  case ConnectionState.waiting:
-                                    return const CircularProgressIndicator();
-                                  default:
-                                    if (snapshot.hasData) {
-                                      return TextFields.dropdown(
-                                        optionValues: snapshot.data!
-                                            .map((value) => value.cityName!)
-                                            .toList(),
-                                        options: snapshot.data,
-                                        onChanged: (value) {
-                                          _onCityOriginChanged(value);
-                                        },
-                                        labelText: 'Kota',
-                                        validator: (value) {
-                                          return _validateCity(value);
-                                        },
-                                        autovalidateMode:
-                                            AutovalidateMode.onUserInteraction,
-                                      );
-                                    } else {
-                                      return const Text('Tidak ada data kota');
-                                    }
-                                }
-                              }),
-                            )
-                        ],
-                      ),
-                    ),
-                    SizedSpacer.vertical(space: Space.medium),
-                    SizedBox(
-                      width: double.infinity,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Daerah tujuan',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          SizedSpacer.vertical(),
-                          FutureBuilder<List<Province>?>(
-                            future: _provinces,
-                            builder: ((context, snapshot) {
-                              switch (snapshot.connectionState) {
-                                case ConnectionState.none:
-                                  return TextFields.dropdown(
-                                      optionValues: [],
-                                      disabledHint: 'Provinsi');
-                                case ConnectionState.waiting:
-                                  return const CircularProgressIndicator();
-                                default:
-                                  if (snapshot.hasData) {
-                                    return TextFields.dropdown(
-                                      optionValues: snapshot.data!
-                                          .map((value) => value.province!)
-                                          .toList(),
-                                      options: snapshot.data,
-                                      onChanged: (value) {
-                                        _onProvinceDestinationChanged(value);
-                                      },
-                                      labelText: 'Provinsi',
-                                      validator: (value) {
-                                        return _validateProvince(value);
-                                      },
-                                      autovalidateMode:
-                                          AutovalidateMode.onUserInteraction,
-                                    );
-                                  } else {
-                                    return const Text(
-                                        'Tidak ada data provinsi');
-                                  }
-                              }
-                            }),
-                          ),
-                          SizedSpacer.vertical(space: Space.medium),
-                          if (_shippingCost.provinceDestination != null)
-                            FutureBuilder<List<City>?>(
-                              future: _citiesDestination,
-                              builder: ((context, snapshot) {
-                                switch (snapshot.connectionState) {
-                                  case ConnectionState.none:
-                                    return TextFields.dropdown(
-                                        optionValues: [],
-                                        disabledHint:
-                                            'Provinsi harus diisi terlebih dahulu');
-                                  case ConnectionState.waiting:
-                                    return const CircularProgressIndicator();
-                                  default:
-                                    if (snapshot.hasData) {
-                                      return TextFields.dropdown(
-                                        optionValues: snapshot.data!
-                                            .map((value) => value.cityName!)
-                                            .toList(),
-                                        options: snapshot.data,
-                                        onChanged: (value) {
-                                          _onCityDestinationChanged(value);
-                                        },
-                                        labelText: 'Kota',
-                                        validator: (value) {
-                                          return _validateCity(value);
-                                        },
-                                        autovalidateMode:
-                                            AutovalidateMode.onUserInteraction,
-                                      );
-                                    } else {
-                                      return const Text('Tidak ada data kota');
-                                    }
-                                }
-                              }),
-                            ),
-                        ],
-                      ),
-                    ),
-                    SizedSpacer.vertical(space: Space.large),
-                    FilledButton(
-                      onPressed: _onCheckShippingCost,
-                      label: 'Cek ongkir',
+                    SizedSpacer.horizontal(space: Space.medium),
+                    Text(
+                      'Ongkir',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ],
                 ),
-              )
+                FutureBuilder(
+                  future: _costs,
+                  builder: ((context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(
+                          child: Column(
+                        children: [
+                          SizedSpacer.vertical(space: Space.medium),
+                          const CircularProgressIndicator(),
+                        ],
+                      ));
+                    } else {
+                      if (snapshot.hasData) {
+                        if (snapshot.data!.isNotEmpty) {
+                          return ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            itemCount: snapshot.data!.length,
+                            itemBuilder: ((context, index) {
+                              return ShippingCostCard(
+                                costs: snapshot.data![index],
+                              );
+                            }),
+                          );
+                        } else {
+                          return const Text(
+                              'Tidak ada data pengiriman yang ditemukan');
+                        }
+                      } else {
+                        return const Text(
+                            'Tidak ada data pengiriman yang ditemukan');
+                      }
+                    }
+                  }),
+                ),
+              ],
             ],
           ),
         ),

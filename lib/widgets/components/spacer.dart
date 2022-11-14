@@ -1,4 +1,4 @@
-part of 'widgets.dart';
+part of '../widgets.dart';
 
 class SizedSpacer {
   static SizedBox horizontal({double space = 8}) {

@@ -1,14 +1,14 @@
 import 'package:raja_ongkir_flutter/models/models.dart';
 
-class ShippingCost {
+class ShippingDetail {
   Courier? courier;
-  String? weight;
+  int? weight;
   Province? provinceOrigin;
   Province? provinceDestination;
   City? cityOrigin;
   City? cityDestination;
 
-  ShippingCost({
+  ShippingDetail({
     this.courier,
     this.weight,
     this.provinceOrigin,
